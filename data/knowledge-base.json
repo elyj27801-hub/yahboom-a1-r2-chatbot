@@ -1,0 +1,2465 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-11-01",
+  "entries": [
+    {
+      "id": "r2-lidar-timeout",
+      "model": "R2",
+      "environment": [
+        "Jetson Orin Nano Super",
+        "Ubuntu 24.04",
+        "ROS 2 Jazzy",
+        "SLAMTEC SLLIDAR C1"
+      ],
+      "title": "LiDAR 연결 실패, 타임아웃, /scan 미발행",
+      "symptoms": [
+        "LiDAR가 인식되지 않음",
+        "SL_RESULT_OPERATION_TIMEOUT",
+        "/scan 토픽이 발행되지 않음",
+        "sllidar 노드가 장치를 열지 못함",
+        "SLAMTEC SLLIDAR C1, 460800 baud, frame_id laser",
+        "sllidar_ros2에서 /scan 발행 확인"
+      ],
+      "keywords": [
+        "lidar",
+        "라이다",
+        "sllidar",
+        "slamtec",
+        "C1",
+        "SL_RESULT_OPERATION_TIMEOUT",
+        "operation timeout",
+        "/scan",
+        "스캔",
+        "ttyusb0",
+        "타임아웃",
+        "460800",
+        "R2-003",
+        "SLLIDAR C1 스캔 구동"
+      ],
+      "causes": [
+        "LiDAR의 실제 USB 장치 경로가 launch 설정과 다름",
+        "MCU와 LiDAR의 ttyUSB 번호가 재부팅 후 바뀜",
+        "다른 프로세스가 포트를 점유하거나 현재 사용자에게 직렬 포트 권한이 없음",
+        "전원·케이블·USB 허브 또는 baudrate 문제",
+        "경험 기록 주의: 위 /dev/ttyUSB0은 특정 시점 예시이며 모든 R2에 고정 아님."
+      ],
+      "diagnostics": [
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "ls -l /dev/ttyUSB* /dev/serial/by-id/* 2>/dev/null"
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "udevadm info --query=property --name=/dev/ttyUSB0 | grep -E 'ID_VENDOR|ID_MODEL|ID_SERIAL'"
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "lsof /dev/ttyUSB0"
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "ros2 topic list | grep -E '^/scan$' && ros2 topic hz /scan"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 launch sllidar_ros2 sllidar_c1_launch.py serial_port:=/dev/ttyUSB0 serial_baudrate:=460800 frame_id:=laser"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 topic hz /scan"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 topic echo /scan --once"
+        }
+      ],
+      "solutions": [
+        "장치 식별 결과가 SLAMTEC이면 launch의 serial_port를 해당 `/dev/serial/by-id/...` 경로로 지정한다. 저장소 launch는 고정 by-id 경로와 460800 baud를 사용한다.",
+        "해당 경로가 MCU라면 LiDAR로 추정하지 말고 각 장치를 하나씩 분리 연결해 식별한다.",
+        "권한 오류면 현재 셸에서 `groups`와 장치 권한을 확인한다. 그룹 변경이나 udev 규칙 수정은 시스템 변경이므로 관리자와 검토 후 수행한다.",
+        "장치는 열리지만 타임아웃이면 다른 프로세스를 종료한 뒤 케이블·전원·직결 USB 포트를 순서대로 바꿔 재시험한다. 원인을 확인하기 전 드라이버 재설치부터 하지 않는다.",
+        "실행 전에 USB 장치 매핑부터 확인하고 serial_port 인자는 실제 경로로 변경",
+        "다른 라이다 드라이버의 시리얼 포트 중복 점유를 피할 것"
+      ],
+      "verification": [
+        "sllidar 노드에 반복 타임아웃이 없다",
+        "`ros2 topic hz /scan`에 지속적인 주기가 표시된다",
+        "RViz2 LaserScan에 실제 장애물 형상이 움직임에 맞게 갱신된다",
+        "/scan 데이터 수신, frame_id laser, 유효 거리 확인"
+      ],
+      "sources": [
+        {
+          "label": "R2 robot.launch.py",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system/blob/main/src/r2_bringup/launch/robot.launch.py"
+        },
+        {
+          "label": "R2 README - LiDAR",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system#lidar"
+        },
+        {
+          "label": "2026-07~11 사용자·ChatGPT 과거 대화 기록 (해당 실행 로그 재검증 필요)",
+          "url": null
+        }
+      ],
+      "status": "partially-verified",
+      "statusLabel": "프로젝트 설정 확인 · 원인별 진단은 일반 가설"
+    },
+    {
+      "id": "r2-serial-identity",
+      "model": "R2",
+      "environment": [
+        "Jetson",
+        "ROSMASTER MCU",
+        "SLLIDAR C1"
+      ],
+      "title": "/dev/ttyUSB0, ttyUSB1, myserial 장치 구분",
+      "symptoms": [
+        "포트를 바꾸면 LiDAR 또는 모터 한쪽만 동작",
+        "/dev/myserial이 어느 장치인지 불명확",
+        "2026-11-01 확인: CP2102N C1 LiDAR가 /dev/ttyUSB0, CH340/1a86가 /dev/ttyUSB1",
+        "2026-08 당시 /dev/myserial→ttyUSB1, LiDAR ttyUSB0였음",
+        "다른 실험 이력에는 LiDAR /dev/ttyUSB1도 기록됨"
+      ],
+      "keywords": [
+        "ttyUSB",
+        "ttyusb0",
+        "ttyusb1",
+        "myserial",
+        "시리얼",
+        "usb 포트",
+        "udev",
+        "장치 구분",
+        "CP2102N",
+        "CH340",
+        "by-id",
+        "R2-002",
+        "LiDAR 및 Rosmaster USB 포트 혼동"
+      ],
+      "causes": [
+        "커널이 USB 직렬 장치에 부여하는 번호는 고정 식별자가 아님",
+        "기존 `/dev/myserial` 심볼릭 링크가 현재 MCU를 가리키지 않을 수 있음",
+        "경험 기록 주의: CP2102N by-id는 사용자 2026-11-01 로그에 있으나 장치마다 ID가 다름. A1의 포트명과 혼합 금지."
+      ],
+      "diagnostics": [
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "readlink -f /dev/myserial; ls -l /dev/serial/by-id/"
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "for d in /dev/ttyUSB*; do echo \"=== $d\"; udevadm info --query=property --name=\"$d\" | grep -E 'ID_VENDOR|ID_MODEL|ID_SERIAL'; done"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ls -l /dev/serial/by-id/"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "udevadm info -q property -n /dev/ttyUSB0 | grep -E \"ID_VENDOR=|ID_MODEL=|ID_SERIAL=\""
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "udevadm info -q property -n /dev/ttyUSB1 | grep -E \"ID_VENDOR=|ID_MODEL=|ID_SERIAL=\""
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "readlink -f /dev/myserial"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "sudo fuser -v /dev/ttyUSB0 /dev/ttyUSB1"
+        }
+      ],
+      "solutions": [
+        "한 장치씩 분리해 by-id 값과 ttyUSB 번호의 대응표를 만든다.",
+        "R2 소스에서 MCU 기본 경로는 `/dev/myserial`, LiDAR launch는 `/dev/serial/by-id/...`이다. 두 경로가 같은 실제 장치를 가리키지 않는지 확인한다.",
+        "udev 규칙을 새로 만드는 작업은 시스템 설정 변경이므로 이 사이트의 자동 해결 범위 밖이다.",
+        "포트 번호를 하드코딩하지 않고 CP2102N의 /dev/serial/by-id 경로로 LiDAR 선택",
+        "Rosmaster 제어보드에 대응하는 CH340/ttyUSB 및 /dev/myserial 별도 확인",
+        "fuser로 점유 프로세스 조사 후 중복 실행 해제"
+      ],
+      "verification": [
+        "MCU와 LiDAR를 동시에 연결해도 각각 서로 다른 실제 장치 경로를 사용한다",
+        "재부팅 후 by-id 경로가 동일 장치를 가리킨다",
+        "장치 분리·재연결 후 동일 by-id로 추적되는지 확인",
+        "/scan 및 Rosmaster 시리얼 동시 확인"
+      ],
+      "sources": [
+        {
+          "label": "sme_node MCU 초기화",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system/blob/main/src/sme_node/sme_node/sme_node.py"
+        },
+        {
+          "label": "재현성 체크리스트",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system/blob/main/docs/REPRODUCIBILITY_CHECKLIST.md"
+        },
+        {
+          "label": "2026-07~11 사용자·ChatGPT 과거 대화 기록 (해당 실행 로그 재검증 필요)",
+          "url": null
+        }
+      ],
+      "status": "verified",
+      "statusLabel": "프로젝트 소스 확인"
+    },
+    {
+      "id": "r2-camera-device",
+      "model": "R2",
+      "environment": [
+        "Jetson",
+        "USB Camera",
+        "OpenCV",
+        "V4L2"
+      ],
+      "title": "카메라 장치 번호 변경 또는 영상 수신 실패",
+      "symptoms": [
+        "카메라 영상이 나오지 않음",
+        "/camera/image_raw가 없음",
+        "재부팅 후 다른 /dev/videoX가 잡힘",
+        "/camera/image_raw 640×480 약 22~27fps 관찰",
+        "2026-11-01 v4l2 목록에 /dev/video1,/dev/video2, 코드 device_index=0 주석과 매핑 불일치",
+        "보정 K와 D 산출 완료, /image_rect 발행"
+      ],
+      "keywords": [
+        "카메라",
+        "camera",
+        "video0",
+        "video2",
+        "v4l2",
+        "영상",
+        "image_raw",
+        "videocapture",
+        "장치 번호",
+        "calibration",
+        "undistort",
+        "image_rect",
+        "R2-005",
+        "카메라 장치와 캘리브레이션"
+      ],
+      "causes": [
+        "USB 카메라의 `/dev/videoX` 번호가 변경됨",
+        "같은 카메라가 여러 V4L2 노드를 제공해 메타데이터 노드를 선택함",
+        "해상도·픽셀 포맷이 현재 설정과 맞지 않거나 다른 앱이 장치를 점유함",
+        "경험 기록 주의: 640×480 K=[[376.6199,0,320.3330],[0,503.1878,203.7023],[0,0,1]], D=[-0.424188,0.200225,0.010700,-0.001228,-0.047810], RMS 0.616px. YAML ~/.ros/camera_info/yahboom_640x480_vsc.yaml, NPZ /home/jetson/camera_calibration_vsc/yahboom_640x480_calibration.npz"
+      ],
+      "diagnostics": [
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "v4l2-ctl --list-devices"
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "v4l2-ctl --device=/dev/video0 --list-formats-ext"
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "ros2 topic hz /camera/image_raw"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "v4l2-ctl --list-devices"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 topic hz /camera/image_raw"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 run sme_node undistort_node -r /image_raw:=/camera/image_raw"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 topic hz /image_rect"
+        }
+      ],
+      "solutions": [
+        "`v4l2-ctl` 출력에서 실제 영상 캡처 노드를 찾고 camera_node의 device_index 파라미터를 그 번호에 맞춘다.",
+        "지원 포맷 목록과 노드 설정의 해상도/FPS/MJPG 설정을 비교한다.",
+        "장치 점유 여부를 확인하고 카메라 앱과 ROS 노드를 동시에 열지 않는다.",
+        "장치 번호는 재부팅 후 변경 가능; 실제 장치로 열리는 인덱스를 점검",
+        "카메라 영상이 안 나오면 video 번호와 다른 프로세스 점유 확인"
+      ],
+      "verification": [
+        "`ros2 topic hz /camera/image_raw`가 안정적인 주기를 보인다",
+        "영상의 색상·해상도·지연이 기대 범위다",
+        "/image_rect에서 왜곡 보정 결과 확인"
+      ],
+      "sources": [
+        {
+          "label": "R2 camera_node.py",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system/blob/main/src/sme_node/sme_node/camera_node.py"
+        },
+        {
+          "label": "R2 README - camera_node",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system#camera_node"
+        },
+        {
+          "label": "2026-07~11 사용자·ChatGPT 과거 대화 기록 (해당 실행 로그 재검증 필요)",
+          "url": null
+        }
+      ],
+      "status": "verified",
+      "statusLabel": "프로젝트 문서·소스 확인"
+    },
+    {
+      "id": "r2-mcu-motion",
+      "model": "R2",
+      "environment": [
+        "Jetson",
+        "ROSMASTER MCU",
+        "sme_node"
+      ],
+      "title": "/cmd_vel 발행 후 모터 또는 조향이 움직이지 않음",
+      "symptoms": [
+        "/cmd_vel은 보이지만 자동차가 움직이지 않음",
+        "모터 또는 서보만 반응하지 않음",
+        "명령 후 0.5초 안에 정지",
+        "Rosmaster_Lib 3.3.9, R2 car_type=5",
+        "sme_node motor_node 구독 /cmd_vel, servo_node 구독 /servo/front_cmd, camera pan/tilt",
+        "조향 0도 전방, 음수 좌측·양수 우측, 약 ±45도 확인"
+      ],
+      "keywords": [
+        "cmd_vel",
+        "모터",
+        "motor",
+        "서보",
+        "servo",
+        "움직이지",
+        "주행",
+        "rosmaster",
+        "mcu",
+        "front_cmd",
+        "조향",
+        "steering",
+        "motor_node",
+        "R2-004",
+        "모터 조향 제어 및 노드/토픽"
+      ],
+      "causes": [
+        "motor_node가 실행되지 않았거나 다른 토픽을 구독함",
+        "MCU `/dev/myserial` 연결 실패",
+        "안전 타임아웃 때문에 단발성 명령이 0.5초 후 정지",
+        "차선/사람 추종 노드가 `/cmd_vel_raw`를 발행하지만 안전 중계 노드가 없음",
+        "모터 전원·비상 정지·MCU 상태 문제",
+        "경험 기록 주의: Rosmaster API set_akm_steering_angle(angle,ctrl_car=False), set_motor(), set_car_motion() 사용 기록."
+      ],
+      "diagnostics": [
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "ros2 node list; ros2 topic info /cmd_vel -v"
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "ros2 topic echo /cmd_vel --once"
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "readlink -f /dev/myserial; lsof /dev/myserial"
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "ros2 topic info /servo/front_cmd -v"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 run sme_node sme_node"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 topic info -v /cmd_vel"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 topic info -v /servo/front_cmd"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 topic echo /imu/data_raw --once"
+        }
+      ],
+      "solutions": [
+        "바퀴를 지면에서 띄우고 비상 정지를 준비한 뒤 publisher/subscriber 연결을 먼저 확인한다.",
+        "`/cmd_vel_raw`만 발행된다면 저장소의 obstacle_stop 중계 구조를 확인한다. 안전 계층을 우회해 모터에 바로 연결하지 않는다.",
+        "motor_node는 `/cmd_vel` 구독이 0.5초 끊기면 정지하도록 구현돼 있다. 테스트 발행 주기와 노드 로그를 확인한다.",
+        "ROS 연결은 정상인데 MCU 로그가 실패하면 `/dev/myserial`이 MCU를 가리키는지 장치 식별부터 다시 한다.",
+        "모터·조향 제어를 별도 노드에서 수행하므로 중복 motor/servo publisher 확인",
+        "테스트 시 바퀴를 들어 올리고 안전구역에서 저속으로 확인"
+      ],
+      "verification": [
+        "명령 발행자와 motor_node 구독자가 `ros2 topic info -v`에 함께 표시된다",
+        "낮은 속도 시험에서 전진·정지·조향이 의도대로 동작한다",
+        "명령 중단 후 타임아웃 정지가 동작한다",
+        "/cmd_vel 및 /servo/front_cmd subscriber 확인"
+      ],
+      "sources": [
+        {
+          "label": "motor_node.py",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system/blob/main/src/sme_node/sme_node/motor_node.py"
+        },
+        {
+          "label": "person_follow_node.py",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system/blob/main/src/r2_person_follow/r2_person_follow/person_follow_node.py"
+        },
+        {
+          "label": "2026-07~11 사용자·ChatGPT 과거 대화 기록 (해당 실행 로그 재검증 필요)",
+          "url": null
+        }
+      ],
+      "status": "verified",
+      "statusLabel": "프로젝트 제어 흐름 확인"
+    },
+    {
+      "id": "r2-ros-discovery",
+      "model": "R2",
+      "environment": [
+        "Ubuntu 24.04",
+        "ROS 2 Jazzy"
+      ],
+      "title": "ROS 2 노드와 토픽이 보이지 않음",
+      "symptoms": [
+        "ros2 topic list가 비어 있음",
+        "다른 터미널의 노드가 보이지 않음",
+        "패키지 또는 ros2 명령을 찾지 못함"
+      ],
+      "keywords": [
+        "토픽 안 보여",
+        "노드 안 보여",
+        "topic list",
+        "node list",
+        "source",
+        "domain",
+        "ros_domain_id",
+        "jazzy",
+        "환경",
+        "발견",
+        "discovery"
+      ],
+      "causes": [
+        "현재 셸에서 ROS 2 또는 워크스페이스 setup을 source하지 않음",
+        "터미널 간 ROS_DOMAIN_ID 불일치",
+        "노드가 실제로 종료됐거나 다른 네트워크/DDS 설정을 사용함"
+      ],
+      "diagnostics": [
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "echo \"ROS_DISTRO=$ROS_DISTRO ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-unset}\""
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "source /opt/ros/jazzy/setup.bash && source ~/sme_ws2/install/setup.bash"
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "ros2 node list; ros2 topic list -t"
+        }
+      ],
+      "solutions": [
+        "모든 관련 터미널에서 `/opt/ros/jazzy/setup.bash`와 빌드된 워크스페이스 setup을 같은 순서로 source한다.",
+        "R2 README 기록값은 ROS_DOMAIN_ID=6이지만 장비 전체의 절대 고정값은 아니다. 통신할 프로세스끼리 같은 값인지 확인한다.",
+        "같은 호스트·도메인에서도 안 보이면 노드 로그와 `ros2 daemon stop`, `ros2 daemon start` 순으로 CLI 캐시를 재확인한다."
+      ],
+      "verification": [
+        "모든 터미널에서 ROS_DISTRO와 ROS_DOMAIN_ID가 일치한다",
+        "노드와 토픽 목록에 예상 이름과 메시지 타입이 표시된다"
+      ],
+      "sources": [
+        {
+          "label": "R2 README - Environment",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system#environment"
+        },
+        {
+          "label": "ROS 2 Jazzy environment tutorial",
+          "url": "https://docs.ros.org/en/jazzy/Tutorials/Beginner-CLI-Tools/Configuring-ROS2-Environment.html"
+        }
+      ],
+      "status": "partially-verified",
+      "statusLabel": "프로젝트 환경 확인 · 진단은 ROS 2 표준 절차"
+    },
+    {
+      "id": "r2-build-run",
+      "model": "R2",
+      "environment": [
+        "Ubuntu 24.04",
+        "ROS 2 Jazzy",
+        "~/sme_ws2"
+      ],
+      "title": "패키지 빌드 또는 ros2 run 실행 오류",
+      "symptoms": [
+        "package not found",
+        "executable not found",
+        "colcon build 실패",
+        "sme_node 실행 실패"
+      ],
+      "keywords": [
+        "빌드",
+        "build",
+        "colcon",
+        "package not found",
+        "executable not found",
+        "ros2 run",
+        "sme_node",
+        "패키지"
+      ],
+      "causes": [
+        "잘못된 워크스페이스에서 빌드",
+        "install/setup.bash source 누락",
+        "Python/ROS 의존성 누락",
+        "이전 빌드와 소스가 맞지 않음"
+      ],
+      "diagnostics": [
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "cd ~/sme_ws2 && colcon list"
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "ros2 pkg prefix sme_node; ros2 pkg executables sme_node"
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "cd ~/sme_ws2 && colcon build --packages-select sme_node --event-handlers console_direct+"
+        }
+      ],
+      "solutions": [
+        "`colcon list`에 패키지가 없으면 소스 위치와 package.xml을 확인한다.",
+        "빌드 성공 후 새 터미널에서 `source ~/sme_ws2/install/setup.bash`를 실행한다.",
+        "오류의 첫 원인 메시지를 기준으로 의존성을 확인한다. 전체 build/install/log 폴더 삭제는 자동 권장하지 않는다."
+      ],
+      "verification": [
+        "`ros2 pkg prefix sme_node`가 `~/sme_ws2/install` 아래를 가리킨다",
+        "`ros2 pkg executables sme_node`에 필요한 실행 파일이 나온다"
+      ],
+      "sources": [
+        {
+          "label": "sme_node setup.py",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system/blob/main/src/sme_node/setup.py"
+        },
+        {
+          "label": "sme_node package.xml",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system/blob/main/src/sme_node/package.xml"
+        }
+      ],
+      "status": "verified",
+      "statusLabel": "프로젝트 패키지 정의 확인"
+    },
+    {
+      "id": "r2-slam-nav2-tf",
+      "model": "R2",
+      "environment": [
+        "ROS 2 Jazzy",
+        "SLAM Toolbox",
+        "Nav2",
+        "TF2"
+      ],
+      "title": "SLAM Toolbox, Nav2 또는 TF 구동 문제",
+      "symptoms": [
+        "Nav2가 실행되지 않음",
+        "지도가 갱신되지 않음",
+        "map odom base_link transform 오류",
+        "Message Filter dropping message",
+        "ros2 node list | grep -E \"slam_toolbox|controller_server|planner_server|bt_navigator\" 결과 없음",
+        "/navigate_to_pose/_action/status 미발행",
+        "launch 재실행 후에도 발견되지 않는 기록"
+      ],
+      "keywords": [
+        "nav2",
+        "slam toolbox",
+        "slam_toolbox",
+        "tf",
+        "transform",
+        "좌표계",
+        "map",
+        "odom",
+        "base_link",
+        "laser",
+        "scan_filtered",
+        "메시지 필터",
+        "bt_navigator",
+        "navigate_to_pose",
+        "R2-012",
+        "SLAM Toolbox/Nav2 노드가 보이지 않음"
+      ],
+      "causes": [
+        "필수 TF 체인의 일부가 없거나 시간 스탬프가 맞지 않음",
+        "Nav2 설정의 scan 토픽이 실제 발행 토픽과 다름",
+        "map/odom 프레임 또는 Ackermann 운동 모델 설정 불일치",
+        "LiDAR가 `/scan`을 발행하지 않음",
+        "최종 원인 미확정: 원인이 하나로 확정되지 않았고 재실행으로 해결 완료 근거 없음. Nav2 parameter 파일 nav2_slam.yaml 등의 실제 경로 존재 확인 필요."
+      ],
+      "diagnostics": [
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "ros2 topic hz /scan; ros2 topic hz /scan_filtered"
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "ros2 run tf2_ros tf2_echo map base_link"
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "ros2 run tf2_tools view_frames"
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "ros2 lifecycle nodes"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 node list"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 topic list -t"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 topic hz /scan"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 topic hz /odom"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 run tf2_ros tf2_echo odom base_link"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 run tf2_ros tf2_echo base_link laser"
+        }
+      ],
+      "solutions": [
+        "먼저 `/scan`과 `odom -> base_link`를 확인하고, 그 다음 SLAM의 `map -> odom`을 확인한다.",
+        "Nav2 YAML의 scan 토픽이 `/scan_filtered`이면 그 토픽을 만드는 필터 노드가 실제 실행 중인지 확인한다.",
+        "프레임 이름을 임의로 덧붙이지 말고 저장소 설정과 실제 메시지 header.frame_id를 비교한다.",
+        "전체 체인이 확인되기 전 Nav2 파라미터 튜닝으로 우회하지 않는다.",
+        "launch 중 예외/라이프사이클 state 확인",
+        "DDS ROS_DOMAIN_ID, workspace source, /scan, odom, TF가 준비됐는지 점검",
+        "Nav2가 실행되지 않은 상태와 경로 계획 실패를 혼동하지 않는다"
+      ],
+      "verification": [
+        "map → odom → base_link → laser TF 체인이 끊기지 않는다",
+        "정지 상태에서 TF 시간이 계속 갱신된다",
+        "Nav2 lifecycle 노드가 active이며 costmap에 스캔이 반영된다",
+        "slam_toolbox, controller_server, planner_server, bt_navigator 노드/라이프사이클 확인"
+      ],
+      "sources": [
+        {
+          "label": "R2 재현성 체크리스트",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system/blob/main/docs/REPRODUCIBILITY_CHECKLIST.md"
+        },
+        {
+          "label": "nav2_r2.yaml",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system/blob/main/nav2_r2.yaml"
+        },
+        {
+          "label": "slam_r2.yaml",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system/blob/main/slam_r2.yaml"
+        },
+        {
+          "label": "2026-07~11 사용자·ChatGPT 과거 대화 기록 (해당 실행 로그 재검증 필요)",
+          "url": null
+        }
+      ],
+      "status": "partially-verified",
+      "statusLabel": "설정 파일 확인 · 고장 원인은 로그 필요"
+    },
+    {
+      "id": "r2-camera-calibration",
+      "model": "R2",
+      "environment": [
+        "OpenCV",
+        "camera_calibration",
+        "undistort_node"
+      ],
+      "title": "카메라 왜곡 보정 또는 CameraInfo 불일치",
+      "symptoms": [
+        "보정 후 영상이 심하게 잘림",
+        "직선이 휘어 보임",
+        "ArUco pose가 불안정",
+        "해상도 변경 후 보정이 이상함"
+      ],
+      "keywords": [
+        "캘리브레이션",
+        "calibration",
+        "왜곡",
+        "undistort",
+        "camera_info",
+        "image_rect",
+        "보정",
+        "rms"
+      ],
+      "causes": [
+        "보정 YAML의 해상도와 실제 영상 해상도가 다름",
+        "다른 카메라 또는 초점 상태에서 만든 intrinsics 사용",
+        "원본/보정 영상 토픽을 혼동"
+      ],
+      "diagnostics": [
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "ros2 topic echo /camera_info_rect --once"
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "ros2 topic hz /image_rect"
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "ros2 param list /undistort_node"
+        }
+      ],
+      "solutions": [
+        "실제 해상도와 `config/camera/yahboom_640x480_vsc.yaml`의 image_width/image_height를 비교한다.",
+        "카메라·해상도·초점이 바뀌었다면 같은 조건에서 다시 캘리브레이션한다.",
+        "ArUco에는 `/image_rect`와 `/camera_info_rect`를 같은 보정 파이프라인에서 공급한다."
+      ],
+      "verification": [
+        "영상 가장자리 직선이 자연스럽고 과도한 crop이 없다",
+        "CameraInfo 해상도와 Image 해상도가 일치한다",
+        "저장소 체크리스트의 기록 RMS 0.616 px는 참고값으로만 비교한다"
+      ],
+      "sources": [
+        {
+          "label": "카메라 보정 YAML",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system/blob/main/config/camera/yahboom_640x480_vsc.yaml"
+        },
+        {
+          "label": "undistort_node.py",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system/blob/main/src/sme_node/sme_node/undistort_node.py"
+        }
+      ],
+      "status": "verified",
+      "statusLabel": "프로젝트 보정 파일·파이프라인 확인"
+    },
+    {
+      "id": "r2-lane-curves",
+      "model": "R2",
+      "environment": [
+        "OpenCV",
+        "lane_pure_pursuit_node"
+      ],
+      "title": "차선 검출 실패, S자·연속 급커브 조향 실패",
+      "symptoms": [
+        "차선을 놓침",
+        "S자 구간에서 진동",
+        "급커브에서 바깥으로 이탈",
+        "조향이 좌우로 흔들림",
+        "S curve에서 직진하거나 진동",
+        "좌/우 연속 90도 급커브에서 조향 반응 늦어 벽 접근",
+        "일부 lane_pure_pursuit_node.py 설정에서 차선 이탈"
+      ],
+      "keywords": [
+        "차선",
+        "lane",
+        "s자",
+        "급커브",
+        "조향 실패",
+        "pure pursuit",
+        "흔들림",
+        "이탈",
+        "검출 실패",
+        "S curve",
+        "BEV",
+        "90도",
+        "R2-006",
+        "OpenCV 차선주행 S자 진동·90도 코너 실패"
+      ],
+      "causes": [
+        "카메라 자세·보정·BEV 변환이 트랙 조건과 다름",
+        "흰색/노란색 임계값이 조명에 맞지 않음",
+        "lookahead·조향 gain·속도가 곡률에 비해 공격적임",
+        "일시적 차선 소실 복구가 실제 구간과 맞지 않음",
+        "최종 원인 미확정: 대표 파라미터 wheelbase 0.18m 코드 설정; 차체 실측/다른 프로젝트 표기 0.235m와 불일치 가능, 실제 값 확인 필요. 알고리즘 해결 완료 근거 없음."
+      ],
+      "diagnostics": [
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "ros2 topic hz /image_rect; ros2 topic hz /lane_pure_pursuit/debug"
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "ros2 param list /lane_pure_pursuit_node"
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "ros2 topic echo /cmd_vel_raw"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 topic hz /image_rect"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 topic info -v /servo/front_cmd"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 topic info -v /cmd_vel"
+        }
+      ],
+      "solutions": [
+        "모터를 분리한 상태에서 debug 영상을 먼저 기록해 차선 마스크, BEV, 목표 경로가 어느 단계에서 틀리는지 찾는다.",
+        "직선·S자·급커브를 같은 속도로 튜닝하지 말고 낮은 속도부터 곡률별 명령을 비교한다.",
+        "파라미터 변경 전 카메라 장착 각도와 보정 일치 여부를 먼저 고정한다.",
+        "ROI 및 BEV가 코너에서 차선을 포함하는지 시각 디버그",
+        "히스토그램 seed, sliding window, 2차 polyfit, 단일 차선 fallback 확인",
+        "pure pursuit lookahead·wheelbase·조향 방향·제어 지연·속도 조정"
+      ],
+      "verification": [
+        "debug 영상에서 좌우 경계와 중심 경로가 연속적이다",
+        "기록된 명령이 곡률 변화에 연속적으로 반응한다",
+        "낮은 속도 반복 시험에서 같은 지점의 실패가 재현되지 않는다",
+        "S자와 급코너에서 차선 이탈·조향 진동·벽 접촉 없는지 재시험"
+      ],
+      "sources": [
+        {
+          "label": "lane_pure_pursuit_node.py",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system/blob/main/src/sme_node/sme_node/lane_pure_pursuit_node.py"
+        },
+        {
+          "label": "2026-07~11 사용자·ChatGPT 과거 대화 기록 (해당 실행 로그 재검증 필요)",
+          "url": null
+        }
+      ],
+      "status": "partially-verified",
+      "statusLabel": "알고리즘 확인 · 현장 원인은 영상 로그 필요"
+    },
+    {
+      "id": "r2-crosswalk-wall",
+      "model": "R2",
+      "environment": [
+        "lane_pure_pursuit_node",
+        "lidar_node"
+      ],
+      "title": "횡단보도 오검출 또는 LiDAR 벽 감지 오작동",
+      "symptoms": [
+        "횡단보도에서 갑자기 조향",
+        "흰 차선을 횡단보도로 오검출",
+        "벽이 없는데 장애물로 판단",
+        "벽을 놓침",
+        "Zebra crossing의 흰색 가로줄을 차선처럼 오검출하여 급조향 또는 정지 발생",
+        "±30° 전방 최소거리 사용 시 0.05~0.08m 근거리 값과 장애물 없는 STOP",
+        "CLEAR 약 2.75m 때 DRIVE",
+        "벽/차량 뒤 영향 제거하고 전방 폭 20cm × 깊이 70cm만 보려는 최종 요구"
+      ],
+      "keywords": [
+        "횡단보도",
+        "crosswalk",
+        "갑자기 조향",
+        "벽 감지",
+        "오검출",
+        "obstacle",
+        "장애물",
+        "front_distance",
+        "lidar 벽",
+        "zebra",
+        "lane",
+        "R2-007",
+        "횡단보도에서 급조향·정지",
+        "obstacle_stop",
+        "벽",
+        "false positive",
+        "lidar",
+        "R2-008",
+        "LiDAR 벽 오검출로 불필요한 정지"
+      ],
+      "causes": [
+        "횡단보도 흰 줄과 차선 경계가 같은 마스크에 섞임",
+        "확정 프레임·점수·stripe 수 임계값이 현장 영상과 맞지 않음",
+        "LiDAR 전방 각도 범위 또는 최소/최대 거리 설정이 차체와 맞지 않음",
+        "반사 불량·차체 자체 반사·NaN/Inf 거리값",
+        "최종 원인 미확정: 개선 요구와 후보 접근은 기록됐지만 완성된 해결로 기록되지 않음.",
+        "경험 기록 주의: 초기 STOP_DISTANCE 0.60m, 전방 ±30°, 개선 요구 영역 폭 약 0.20m·깊이 0.70m. 구현 결과는 미확정."
+      ],
+      "diagnostics": [
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "ros2 topic hz /lane_pure_pursuit/debug"
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "ros2 topic echo /lidar/front_distance"
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "ros2 topic echo /scan --once"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 topic hz /image_rect"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 topic echo /scan --once"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 topic echo /lidar/front_distance --once"
+        }
+      ],
+      "solutions": [
+        "debug 화면의 `cross raw`, `confirmed`, `score`와 검출 박스를 문제 구간에서 기록한다.",
+        "저장소 구현은 최소 stripe 수, 점수, 연속 확인/해제 프레임을 사용한다. 값 변경은 기록 영상으로 오탐/미탐을 함께 비교해 결정한다.",
+        "벽 감지는 원본 `/scan`에서 전방 각도 구간의 유효 거리 분포를 먼저 확인한 뒤 범위 파라미터를 조정한다.",
+        "횡단보도와 차선의 방향·길이·연속성 분리",
+        "횡단보도 구간은 이전 정상 조향과 lane confidence를 활용하고, 추가 분류/필터 검토",
+        "정지 원인이 obstacle_stop인지 lane node인지 토픽/로그로 구분",
+        "라이다 각도를 차량 전방 방향과 TF 기준으로 검증",
+        "각도만이 아니라 scan을 x-y 평면으로 투영한 직사각형 관심영역 필터 적용 검토",
+        "최솟값 기반 오검출과 실제 장애물 구별",
+        "차량 정지 로직을 모터 명령과 분리하여 검증"
+      ],
+      "verification": [
+        "횡단보도 검출이 한 프레임 잡음에 확정되지 않는다",
+        "차선 경계가 횡단보도로 분류되지 않는다",
+        "벽 유무를 바꿀 때 front_distance가 물리 거리와 일관된다",
+        "횡단보도 통과 시 급조향과 불필요한 정지가 발생하지 않는지 확인",
+        "장애물이 없는 벽 근처와 실제 전방 장애물에서 각각 STOP/CLEAR 검증"
+      ],
+      "sources": [
+        {
+          "label": "lane_pure_pursuit_node.py",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system/blob/main/src/sme_node/sme_node/lane_pure_pursuit_node.py"
+        },
+        {
+          "label": "lidar_node.py",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system/blob/main/src/sme_node/sme_node/lidar_node.py"
+        },
+        {
+          "label": "2026-07~11 사용자·ChatGPT 과거 대화 기록 (해당 실행 로그 재검증 필요)",
+          "url": null
+        }
+      ],
+      "status": "partially-verified",
+      "statusLabel": "검출 로직 확인 · 현장 원인은 로그 필요"
+    },
+    {
+      "id": "r2-aruco-tracking",
+      "model": "R2",
+      "environment": [
+        "OpenCV ArUco",
+        "r2_aruco",
+        "r2_active_vision"
+      ],
+      "title": "영상은 나오지만 ArUco 검출·Pan/Tilt 추종 실패",
+      "symptoms": [
+        "카메라 영상은 나오지만 마커가 인식되지 않음",
+        "ID가 다르게 나옴",
+        "Pan/Tilt가 반대로 움직이거나 진동",
+        "pose가 발행되지 않음",
+        "r2_aruco 패키지 aruco_detector_node/aruco_follow_node 존재",
+        "DICT_4X4_50, target ID 40, marker 0.120m, /image_rect와 /camera_info_rect",
+        "/aruco/centers, /aruco/ids, /aruco/poses, /aruco/pose_data, /aruco/debug_image",
+        "최신 R2 Active Vision README 기준 Pan 90° 정면, 70° 오른쪽/110° 왼쪽, Tilt 90° 차선 주행 기준",
+        "서보 초기 실험 기록에는 0° 정면인 인터페이스도 있어 원점 기준 혼재",
+        "실기구 Tilt는 125°까지 동작 확인, 코드 clamp 60°~140°이나 전 범위 물리 안전 미확인"
+      ],
+      "keywords": [
+        "aruco",
+        "아루코",
+        "마커",
+        "marker",
+        "pan",
+        "tilt",
+        "추종",
+        "ids",
+        "centers",
+        "pose",
+        "debug_image",
+        "id 40",
+        "DICT_4X4_50",
+        "R2-009",
+        "ArUco 검출 노드 및 입력 연결",
+        "0 degree",
+        "90 degree",
+        "active vision",
+        "R2-010",
+        "카메라 Pan/Tilt 추종 및 원점 체계 차이"
+      ],
+      "causes": [
+        "Dictionary 또는 목표 ID가 인쇄 마커와 다름",
+        "검출 입력이 `/image_rect`가 아니거나 CameraInfo가 없음",
+        "마커가 너무 작거나 흐리고 조명이 나쁨",
+        "tracker 입력 `/aruco/centers`가 없거나 서보 방향/중립값이 맞지 않음",
+        "경험 기록 주의: 공개 R2 프로젝트 README의 구성과 일치.",
+        "경험 기록 주의: 원점 차이는 시점/호출 API/코드 경로별 체계 차이로 취급해야 하며 임의로 통일하지 말 것."
+      ],
+      "diagnostics": [
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "ros2 topic hz /image_rect; ros2 topic hz /camera_info_rect"
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "ros2 topic echo /aruco/ids --once; ros2 topic hz /aruco/debug_image"
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "ros2 topic info /aruco/centers -v"
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "ros2 topic echo /camera/pan_cmd --once"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 pkg executables r2_aruco"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 run r2_aruco aruco_detector_node"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 topic list -t"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 topic echo /aruco/ids --once"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 pkg executables r2_active_vision"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 run r2_active_vision aruco_tracker_node --ros-args --log-level aruco_tracker_node:=debug"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 topic info -v /camera/pan_cmd"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 topic info -v /camera/tilt_cmd"
+        }
+      ],
+      "solutions": [
+        "R2 저장소 기준 설정은 DICT_4X4_50, 목표 ID 40, 크기 0.120m다. 실제 인쇄물과 다르면 실제 값에 맞추되 이를 모든 장비의 고정값으로 보지 않는다.",
+        "debug_image에서 marker corner가 잡히는지 먼저 보고, 검출이 된 뒤에만 pose와 추종을 진단한다.",
+        "추종 명령이 있는데 움직이지 않으면 servo_node 구독과 MCU 연결을, 반대로 움직이면 서보 방향·중립 설정을 점검한다.",
+        "카메라 보정/토픽 이름/마커 딕셔너리/크기를 먼저 확인",
+        "마커 미검출 시 image_rect, camera_info, 마커 크기, ID 및 노출 점검",
+        "현재 설치된 servo_node.py 및 tracker의 각도 변환/기준값 확인",
+        "동시 camera_sweep_node와 aruco_tracker_node 실행 금지",
+        "기계적 충돌 방지를 위해 검증된 범위만 사용"
+      ],
+      "verification": [
+        "`/aruco/ids`에 실제 ID가 안정적으로 나온다",
+        "centers의 u,v가 영상 속 마커 움직임을 따른다",
+        "저속 Pan/Tilt에서 마커가 영상 중심으로 수렴하고 진동하지 않는다",
+        "타깃 ID 40 검출 및 센터(u,v) 출력 확인",
+        "마커 중심 오차에 따른 추종 방향과 종료 후 Pan=90,Tilt=90 복귀 확인(최신 구성)"
+      ],
+      "sources": [
+        {
+          "label": "R2 README - ArUco",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system#aruco-detection"
+        },
+        {
+          "label": "aruco_detector_node.py",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system/blob/main/src/r2_aruco/r2_aruco/aruco_detector_node.py"
+        },
+        {
+          "label": "aruco_tracker_node.py",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system/blob/main/src/r2_active_vision/r2_active_vision/aruco_tracker_node.py"
+        },
+        {
+          "label": "github.com/elyj27801-hub/r2-ros2-autonomous-system/blob/main/README.md",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system/blob/main/README.md"
+        },
+        {
+          "label": "과거 대화",
+          "url": null
+        }
+      ],
+      "status": "verified",
+      "statusLabel": "프로젝트 토픽·기본 설정 확인"
+    },
+    {
+      "id": "r2-person-follow",
+      "model": "R2",
+      "environment": [
+        "r2_person_follow",
+        "LaserScan",
+        "cmd_vel_raw"
+      ],
+      "title": "사람 추종 노드가 움직이지 않거나 안전 정지함",
+      "symptoms": [
+        "사람을 검출해도 차량이 움직이지 않음",
+        "DISARMED 메시지",
+        "scan stale로 정지",
+        "사람 추종 중 /cmd_vel이 없음",
+        "2026-11-01 Git status에서 src/r2_person_follow/가 untracked였던 시점",
+        "이후 확인한 공개 R2 저장소에는 src/r2_person_follow 디렉터리 존재",
+        "복구·실행 방법은 실제 패키지 파일/README 확인 필요"
+      ],
+      "keywords": [
+        "사람 추종",
+        "person follow",
+        "person_follow",
+        "disarmed",
+        "armed",
+        "scan stale",
+        "cmd_vel_raw",
+        "debug_image",
+        "r2_person_follow",
+        "Git",
+        "R2-017",
+        "사람 추종 패키지 추가 및 Git 상태"
+      ],
+      "causes": [
+        "노드는 기본 DISARMED 상태로 시작",
+        "카메라 또는 `/scan` 데이터가 오래됨",
+        "출력 `/cmd_vel_raw`가 안전 중계 obstacle_stop을 통과하지 않음",
+        "검출 신뢰도·거리 조건 미충족",
+        "경험 기록 주의: 실제 사람 추종 알고리즘의 완성/성공 여부는 아직 증거 부족."
+      ],
+      "diagnostics": [
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "ros2 topic hz /person_follow/debug_image; ros2 topic hz /scan"
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "ros2 topic info /cmd_vel_raw -v; ros2 topic info /cmd_vel -v"
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "ros2 param list /person_follow_node"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "git status -sb"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 pkg executables r2_person_follow"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 node list"
+        }
+      ],
+      "solutions": [
+        "debug_image와 `/scan` 주기를 먼저 확인하고 사람이 실제로 검출되는지 본다.",
+        "노드를 명시적으로 arm하는 프로젝트 절차를 확인한다. 안전 상태를 코드에서 제거하지 않는다.",
+        "`/cmd_vel_raw`는 obstacle_stop을 거쳐 `/cmd_vel`로 전달하도록 설계됐다. 중계 노드 누락을 확인한다.",
+        "패키지 존재와 사람 추종 성능 검증을 구별",
+        "실제 구현의 카메라/라이다 토픽, 거리 제어, 긴급 정지 확인 후 문서화"
+      ],
+      "verification": [
+        "DISARMED/ARMED 상태 전이가 의도대로 보인다",
+        "센서가 끊기면 정지하고 복구 후 조건에 맞게 재개한다",
+        "안전 중계 뒤 `/cmd_vel`에서 제한된 명령이 확인된다",
+        "테스트 환경에서 추종·정지·목표 소실 시 안전 동작 검증"
+      ],
+      "sources": [
+        {
+          "label": "person_follow_node.py",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system/blob/main/src/r2_person_follow/r2_person_follow/person_follow_node.py"
+        },
+        {
+          "label": "obstacle_stop.py",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system/blob/main/obstacle_stop.py"
+        },
+        {
+          "label": "github.com/elyj27801-hub/r2-ros2-autonomous-system",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system"
+        },
+        {
+          "label": "2026-11-01 대화",
+          "url": null
+        }
+      ],
+      "status": "verified",
+      "statusLabel": "프로젝트 안전 흐름 확인"
+    },
+    {
+      "id": "r2-jazzy-setup",
+      "model": "R2",
+      "environment": [
+        "Jetson Orin Nano Super",
+        "Ubuntu 24.04",
+        "ROS 2 Jazzy"
+      ],
+      "title": "Ubuntu 24.04에서 ROS 2 Jazzy 환경 확인",
+      "symptoms": [
+        "ROS 2 Jazzy 설정 방법이 필요",
+        "ros2 명령이 없음",
+        "R2 워크스페이스를 source하고 싶음",
+        "Jetson Orin Nano Super, Ubuntu 24.04, ROS 2 Jazzy, ~/sme_ws2",
+        "sme_node의 motor/servo/camera/imu/lidar/undistort 및 추가 r2 패키지 운용",
+        "ROS_DOMAIN_ID=6 사용 기록"
+      ],
+      "keywords": [
+        "ubuntu 24.04",
+        "ros2 jazzy",
+        "jazzy 설치",
+        "환경 설정",
+        "sme_ws2",
+        "source setup",
+        "ROS_DISTRO",
+        "jazzy",
+        "workspace",
+        "learn_launch",
+        "R2-001",
+        "현재 주력 시스템 기본 구성과 ROS2 소스"
+      ],
+      "causes": [
+        "ROS 2 Jazzy 미설치 또는 현재 셸의 setup source 누락",
+        "워크스페이스를 아직 빌드하지 않았거나 install setup 누락",
+        "경험 기록 주의: ~/ros2_ws가 부모 overlay로 들어가 learn_launch 오류가 났던 경험. 새로운 쉘에서 source /opt/ros/jazzy/setup.bash + ~/sme_ws2/install/local_setup.bash로 분리 진단."
+      ],
+      "diagnostics": [
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "lsb_release -a; printenv ROS_DISTRO; which ros2"
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "test -f /opt/ros/jazzy/setup.bash && echo 'Jazzy setup exists'"
+        },
+        {
+          "os": "Jetson Ubuntu",
+          "cmd": "test -f ~/sme_ws2/install/setup.bash && echo 'Workspace setup exists'"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "source /opt/ros/jazzy/setup.bash"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "source ~/sme_ws2/install/local_setup.bash"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 pkg list | grep -E \"sme_node|r2_aruco|r2_active_vision\""
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 node list"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 topic list -t"
+        }
+      ],
+      "solutions": [
+        "이미 설치된 환경이면 `source /opt/ros/jazzy/setup.bash` 후 `source ~/sme_ws2/install/setup.bash`를 실행한다.",
+        "Jazzy가 설치되지 않았다면 공식 Ubuntu 설치 문서를 따른다. 패키지 설치는 시스템 변경이므로 이 챗봇이 자동 실행하지 않는다.",
+        "R2 README의 ROS_DOMAIN_ID=6은 해당 프로젝트 기록값이며 다른 장비와 맞춰야 한다.",
+        "현재 셸의 ROS_DISTRO와 sourced workspace 확인",
+        "과거 Humble overlay를 섞지 않는다",
+        "환경 오류 시 새 셸에서 Jazzy만 source해 문제를 분리"
+      ],
+      "verification": [
+        "`ros2 --help`와 `printenv ROS_DISTRO`가 정상이다",
+        "sme_node 패키지와 실행 파일이 조회된다",
+        "echo \"$ROS_DISTRO\"",
+        "ros2 pkg executables sme_node"
+      ],
+      "sources": [
+        {
+          "label": "ROS 2 Jazzy Ubuntu 설치 문서",
+          "url": "https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debs.html"
+        },
+        {
+          "label": "R2 README - Environment",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system#environment"
+        },
+        {
+          "label": "과거 대화",
+          "url": null
+        },
+        {
+          "label": "github.com/elyj27801-hub/r2-ros2-autonomous-system",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system"
+        }
+      ],
+      "status": "partially-verified",
+      "statusLabel": "프로젝트 환경·공식 문서 확인"
+    },
+    {
+      "id": "a1-001",
+      "model": "A1",
+      "environment": [
+        "Yahboom ROSMASTER A1",
+        "Ubuntu 22.04 기반 기록",
+        "ROS 2 Humble",
+        "~/yahboomcar_ros2_ws/software/library_ws",
+        "~/yahboomcar_ros2_ws/yahboomcar_ws",
+        "NUWA HP60C RGB-D",
+        "T-MINI Plus 2D LiDAR",
+        "Ackman_driver_A1"
+      ],
+      "title": "환경과 드라이버 실행",
+      "symptoms": [
+        "Ubuntu 22.04/ROS 2 Humble 환경의 A1 작업",
+        "~/yahboomcar_ros2_ws/software/library_ws 및 ~/yahboomcar_ros2_ws/yahboomcar_ws 사용",
+        "Ackman_driver_A1에서 Rosmaster Serial Opened! Baudrate=115200, A1, imu_link 및 수신 스레드 확인"
+      ],
+      "keywords": [
+        "Ackman_driver_A1",
+        "Rosmaster Serial Opened",
+        "bringup",
+        "humble",
+        "A1-001",
+        "환경과 드라이버 실행"
+      ],
+      "causes": [
+        "경험 기록 주의: ROS 2 Humble·A1 패키지는 R2 Jazzy/sme_node와 절대 혼용하지 않는다."
+      ],
+      "diagnostics": [
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "source /opt/ros/humble/setup.bash"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "source ~/yahboomcar_ros2_ws/software/library_ws/install/setup.bash"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "source ~/yahboomcar_ros2_ws/yahboomcar_ws/install/setup.bash"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 pkg executables yahboomcar_bringup"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 run yahboomcar_bringup Ackman_driver_A1"
+        }
+      ],
+      "solutions": [
+        "기존 작업공간이 실제 존재하는지 먼저 확인",
+        "A1 bringup으로 드라이버가 이미 실행 중이라면 Ackman_driver_A1을 중복 실행하지 말 것"
+      ],
+      "verification": [
+        "ros2 node list",
+        "ros2 topic list -t",
+        "ros2 topic echo /imu/data_raw --once"
+      ],
+      "sources": [
+        {
+          "label": "2026-07~11 사용자·ChatGPT 과거 대화 기록 (해당 실행 로그 재검증 필요)",
+          "url": null
+        }
+      ],
+      "status": "verified",
+      "statusLabel": "경험 기록 확인 · 문제 전체 해결을 뜻하지 않음"
+    },
+    {
+      "id": "a1-002",
+      "model": "A1",
+      "environment": [
+        "Yahboom ROSMASTER A1",
+        "Ubuntu 22.04 기반 기록",
+        "ROS 2 Humble",
+        "~/yahboomcar_ros2_ws/software/library_ws",
+        "~/yahboomcar_ros2_ws/yahboomcar_ws",
+        "NUWA HP60C RGB-D",
+        "T-MINI Plus 2D LiDAR",
+        "Ackman_driver_A1"
+      ],
+      "title": "11대 A1 SSD 초기화 및 인터페이스 검증",
+      "symptoms": [
+        "A1 차량 11대의 SSD 초기화·기초 환경 구성과 차체별 ROS/센서 검증 수행",
+        "모터/조향/시리얼/IMU/HP60C/LiDAR/odom/캘리브레이션 등 점검"
+      ],
+      "keywords": [
+        "11대",
+        "SSD",
+        "검증",
+        "A1-002",
+        "11대 A1 SSD 초기화 및 인터페이스 검증"
+      ],
+      "causes": [
+        "경험 기록 주의: 모든 11대에서 모든 인터페이스가 최종 PASS했다는 근거는 없음."
+      ],
+      "diagnostics": [
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "lsusb"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ls -l /dev/serial/by-id/"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 node list"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 topic list -t"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 topic info -v /cmd_vel"
+        }
+      ],
+      "solutions": [
+        "차량별 SSD 이미지·센서·포트·펌웨어·검증 날짜를 분리 기록",
+        "한 대에서 확인한 장치 포트를 전체 11대에 일괄 적용하지 않는다"
+      ],
+      "verification": [
+        "차량마다 /cmd_vel, /imu/data_raw, 카메라 영상, /scan 및 실차 구동을 개별 점검"
+      ],
+      "sources": [
+        {
+          "label": "2026-07~11 사용자·ChatGPT 과거 대화 기록 (해당 실행 로그 재검증 필요)",
+          "url": null
+        }
+      ],
+      "status": "verified",
+      "statusLabel": "경험 기록 확인 · 문제 전체 해결을 뜻하지 않음"
+    },
+    {
+      "id": "a1-003",
+      "model": "A1",
+      "environment": [
+        "Yahboom ROSMASTER A1",
+        "Ubuntu 22.04 기반 기록",
+        "ROS 2 Humble",
+        "~/yahboomcar_ros2_ws/software/library_ws",
+        "~/yahboomcar_ros2_ws/yahboomcar_ws",
+        "NUWA HP60C RGB-D",
+        "T-MINI Plus 2D LiDAR",
+        "Ackman_driver_A1"
+      ],
+      "title": "직진 명령에 오른쪽 뒷바퀴만 회전",
+      "symptoms": [
+        "/cmd_vel 직진 또는 선속도 보정 start_test에서 오른쪽 뒷바퀴만 빠르게 회전하고 차량이 왼쪽으로 휘는 현상",
+        "모터 제어보드 통신 자체는 작동했음"
+      ],
+      "keywords": [
+        "모터",
+        "오른쪽 뒷바퀴",
+        "왼쪽으로 휨",
+        "안움직임",
+        "cmd_vel",
+        "A1-003",
+        "직진 명령에 오른쪽 뒷바퀴만 회전"
+      ],
+      "causes": [
+        "최종 원인 미확정: 기록된 /voltage 약 10.2 V, /edition 3.6, /imu/data_raw 수신으로 보드 전체 고장은 단정할 수 없음. 최종 수리·확정 원인 미기록."
+      ],
+      "diagnostics": [
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 topic info -v /cmd_vel"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 topic echo /voltage --once"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 topic echo /imu/data_raw --once"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "readlink -f /dev/myserial"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 topic echo /edition --once"
+        }
+      ],
+      "solutions": [
+        "우선 차량 정지, 바퀴 지면과 분리·안전 확보",
+        "배터리 충전 상태, 왼쪽 모터·커넥터·배선·기계적 걸림 확인",
+        "장비 전원 차단 후 필요 시 모터/출력 채널 교차 진단",
+        "모터 이상을 캘리브레이션 스케일 수정으로 해결하려 하지 말 것"
+      ],
+      "verification": [
+        "정비 후 저속 단시간 테스트에서 좌우 구동 및 실제 진행 방향 검증"
+      ],
+      "sources": [
+        {
+          "label": "2026-07~11 사용자·ChatGPT 과거 대화 기록 (해당 실행 로그 재검증 필요)",
+          "url": null
+        }
+      ],
+      "status": "unverified",
+      "statusLabel": "미해결 · 진단과 다음 단계만 확인"
+    },
+    {
+      "id": "a1-004",
+      "model": "A1",
+      "environment": [
+        "Yahboom ROSMASTER A1",
+        "Ubuntu 22.04 기반 기록",
+        "ROS 2 Humble",
+        "~/yahboomcar_ros2_ws/software/library_ws",
+        "~/yahboomcar_ros2_ws/yahboomcar_ws",
+        "NUWA HP60C RGB-D",
+        "T-MINI Plus 2D LiDAR",
+        "Ackman_driver_A1"
+      ],
+      "title": "/cmd_vel 정지 후 조향이 중앙으로 복귀하지 않음",
+      "symptoms": [
+        "0속도 정지 명령으로 구동은 멈추지만 조향 각도는 유지되는 현상",
+        "linear.x=0.05, angular.z=0 반복 시 직진·중앙 복귀를 관찰"
+      ],
+      "keywords": [
+        "조향",
+        "중앙",
+        "정지",
+        "servo",
+        "A1-004",
+        "/cmd_vel 정지 후 조향이 중앙으로 복귀하지 않음"
+      ],
+      "causes": [
+        "경험 기록 주의: 서보 명령 매핑은 소스·버전에 따라 차이. 움직이는 복귀 명령을 안전 확인 없이 자동 실행하지 말 것."
+      ],
+      "diagnostics": [
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 topic info /cmd_vel"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 topic info -v /cmd_vel"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 node list"
+        }
+      ],
+      "solutions": [
+        "정지와 조향 중앙 복귀를 별도 요구사항으로 취급",
+        "A1에 별도 steering 토픽이 있다고 가정하지 말고 실제 드라이버의 cmd_vel_callback 및 set_car_motion 매핑 확인"
+      ],
+      "verification": [
+        "전원/바퀴 안전 확보 후 조향 중앙과 정지를 별도로 확인"
+      ],
+      "sources": [
+        {
+          "label": "2026-07~11 사용자·ChatGPT 과거 대화 기록 (해당 실행 로그 재검증 필요)",
+          "url": null
+        }
+      ],
+      "status": "partially-verified",
+      "statusLabel": "부분 확인 · 전체 해결 미확정"
+    },
+    {
+      "id": "a1-005",
+      "model": "A1",
+      "environment": [
+        "Yahboom ROSMASTER A1",
+        "Ubuntu 22.04 기반 기록",
+        "ROS 2 Humble",
+        "~/yahboomcar_ros2_ws/software/library_ws",
+        "~/yahboomcar_ros2_ws/yahboomcar_ws",
+        "NUWA HP60C RGB-D",
+        "T-MINI Plus 2D LiDAR",
+        "Ackman_driver_A1"
+      ],
+      "title": "HP60C 카메라에서 /dev/video0가 보이지 않음",
+      "symptoms": [
+        "lsusb에서 NOVATEK 3482:6723 추정 장치 보임",
+        "v4l2-ctl에서 /dev/media0만 표시·/dev/video0 없음",
+        "NUWA HP60C RGB-D는 ascamera/Angstrong SDK를 사용하는 경우가 기록됨"
+      ],
+      "keywords": [
+        "hp60c",
+        "ascamera",
+        "/dev/video0",
+        "NOVATEK",
+        "A1-005",
+        "HP60C 카메라에서 /dev/video0가 보이지 않음"
+      ],
+      "causes": [
+        "경험 기록 주의: HP60C 토픽명은 설치 버전에서 확인할 것. 실제 RGB 약 8~9Hz 발행 기록이 있으나 모든 오류가 해결된 것은 아님."
+      ],
+      "diagnostics": [
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "lsusb"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "v4l2-ctl --list-devices"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 pkg executables ascamera"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 launch ascamera hp60c.launch.py"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 topic list -t"
+        }
+      ],
+      "solutions": [
+        "일반 UVC 카메라를 전제로 /dev/video0만 찾지 말고 HP60C 전용 드라이버 상태 확인",
+        "image 토픽의 실제 발행 여부를 조사"
+      ],
+      "verification": [
+        "ros2 topic hz /ascamera_hp60c/camera_publisher/rgb0/image",
+        "ros2 topic list -t"
+      ],
+      "sources": [
+        {
+          "label": "2026-07~11 사용자·ChatGPT 과거 대화 기록 (해당 실행 로그 재검증 필요)",
+          "url": null
+        }
+      ],
+      "status": "partially-verified",
+      "statusLabel": "부분 확인 · 전체 해결 미확정"
+    },
+    {
+      "id": "a1-006",
+      "model": "A1",
+      "environment": [
+        "Yahboom ROSMASTER A1",
+        "Ubuntu 22.04 기반 기록",
+        "ROS 2 Humble",
+        "~/yahboomcar_ros2_ws/software/library_ws",
+        "~/yahboomcar_ros2_ws/yahboomcar_ws",
+        "NUWA HP60C RGB-D",
+        "T-MINI Plus 2D LiDAR",
+        "Ackman_driver_A1"
+      ],
+      "title": "HP60C uvc_open: Busy / AS_SDK_OpenCamera ret -82",
+      "symptoms": [
+        "ros2 launch ascamera hp60c.launch.py 중 uvc_open: Busy",
+        "AS_SDK_OpenCamera ret:-82",
+        "종료 중 StopStream -101 / camera not open yet 발생"
+      ],
+      "keywords": [
+        "uvc_open",
+        "Busy",
+        "-82",
+        "-101",
+        "camera",
+        "A1-006",
+        "HP60C uvc_open: Busy / AS_SDK_OpenCamera ret -82"
+      ],
+      "causes": [
+        "최종 원인 미확정: 포트 점유가 원인 후보이지 원인 확정 아님. 강제 프로세스 종료를 기본 해결책으로 안내하지 않음."
+      ],
+      "diagnostics": [
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 node list"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 topic list -t"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "lsusb"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "v4l2-ctl --list-devices"
+        }
+      ],
+      "solutions": [
+        "중복으로 실행된 카메라 노드/SDK 프로세스가 있는지 먼저 확인",
+        "카메라를 점유한 노드를 정상 종료한 뒤 단일 ascamera 실행",
+        "케이블/USB 허브/전원 및 SDK 오류 로그 확인"
+      ],
+      "verification": [
+        "영상 토픽 발행 및 실제 프레임 수신을 확인"
+      ],
+      "sources": [
+        {
+          "label": "2026-07~11 사용자·ChatGPT 과거 대화 기록 (해당 실행 로그 재검증 필요)",
+          "url": null
+        }
+      ],
+      "status": "unverified",
+      "statusLabel": "미해결 · 진단과 다음 단계만 확인"
+    },
+    {
+      "id": "a1-007",
+      "model": "A1",
+      "environment": [
+        "Yahboom ROSMASTER A1",
+        "Ubuntu 22.04 기반 기록",
+        "ROS 2 Humble",
+        "~/yahboomcar_ros2_ws/software/library_ws",
+        "~/yahboomcar_ros2_ws/yahboomcar_ws",
+        "NUWA HP60C RGB-D",
+        "T-MINI Plus 2D LiDAR",
+        "Ackman_driver_A1"
+      ],
+      "title": "HP60C Select timeout 및 영상 프레임 수신 실패",
+      "symptoms": [
+        "/dev/video0 1280x720 MJPG 30fps 시도에서 Select timeout, ros2run Aborted",
+        "v4l2 원본 프레임 미수신",
+        "calibration yaml 없음 및 controls 경고 동반"
+      ],
+      "keywords": [
+        "Select timeout",
+        "MJPG",
+        "camera calibration",
+        "yuv422",
+        "A1-007",
+        "HP60C Select timeout 및 영상 프레임 수신 실패"
+      ],
+      "causes": [
+        "최종 원인 미확정: YUV422→rgb8 변환 경고도 관찰됨. 오류의 재현 시점/드라이버 조합을 확인해야 함."
+      ],
+      "diagnostics": [
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "v4l2-ctl --list-devices"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "lsusb"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 node list"
+        }
+      ],
+      "solutions": [
+        "장치가 HP60C 전용 SDK 대상인지 먼저 확인",
+        "UVC 설정 문제와 SDK 장치 인식 문제를 분리해 조사",
+        "캘리브레이션 파일 부재와 실제 프레임 미수신을 동일 원인으로 단정하지 않는다"
+      ],
+      "verification": [
+        "사용 드라이버에 맞는 image 토픽에서 프레임 수신 확인"
+      ],
+      "sources": [
+        {
+          "label": "2026-07~11 사용자·ChatGPT 과거 대화 기록 (해당 실행 로그 재검증 필요)",
+          "url": null
+        }
+      ],
+      "status": "unverified",
+      "statusLabel": "미해결 · 진단과 다음 단계만 확인"
+    },
+    {
+      "id": "a1-008",
+      "model": "A1",
+      "environment": [
+        "Yahboom ROSMASTER A1",
+        "Ubuntu 22.04 기반 기록",
+        "ROS 2 Humble",
+        "~/yahboomcar_ros2_ws/software/library_ws",
+        "~/yahboomcar_ros2_ws/yahboomcar_ws",
+        "NUWA HP60C RGB-D",
+        "T-MINI Plus 2D LiDAR",
+        "Ackman_driver_A1"
+      ],
+      "title": "T-MINI Plus LiDAR /scan 수신과 RViz 표시 불일치",
+      "symptoms": [
+        "A1 LiDAR와 YDLIDAR 드라이버 사용 기록",
+        "/scan 발행은 확인했지만 일부 구간에서 RViz에 스캔이 표시되지 않음",
+        "이전에 laser Fixed Frame 변경 후 표시된 경험 기록"
+      ],
+      "keywords": [
+        "T-MINI",
+        "ydlidar",
+        "/scan",
+        "rviz",
+        "laser_bringup",
+        "A1-008",
+        "T-MINI Plus LiDAR /scan 수신과 RViz 표시 불일치"
+      ],
+      "causes": [
+        "경험 기록 주의: 과거 명령의 RPLIDAR_TYPE=c1은 특정 환경에서 사용됐던 값으로, T-MINI Plus 모든 장비에 맞는 설정으로 일반화 금지. 최종 RViz 이슈 해결은 일률 확인 불가."
+      ],
+      "diagnostics": [
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ROBOT_TYPE=A1 RPLIDAR_TYPE=c1 ros2 launch yahboomcar_bringup laser_bringup_launch.py"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 topic list -t"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 topic hz /scan"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 topic echo /scan --once"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 run tf2_ros tf2_echo base_link laser"
+        }
+      ],
+      "solutions": [
+        "현재 설치된 LiDAR 실물 모델/launch 인자/드라이버를 먼저 확인",
+        "RViz Fixed Frame을 실재하는 laser frame 등으로 지정하고 LaserScan Topic=/scan 확인",
+        "/scan frame_id와 TF 연결 조사"
+      ],
+      "verification": [
+        "rviz2에서 실제 LaserScan 점군 표시 및 /scan 주기 확인"
+      ],
+      "sources": [
+        {
+          "label": "2026-07~11 사용자·ChatGPT 과거 대화 기록 (해당 실행 로그 재검증 필요)",
+          "url": null
+        }
+      ],
+      "status": "partially-verified",
+      "statusLabel": "부분 확인 · 전체 해결 미확정"
+    },
+    {
+      "id": "a1-009",
+      "model": "A1",
+      "environment": [
+        "Yahboom ROSMASTER A1",
+        "Ubuntu 22.04 기반 기록",
+        "ROS 2 Humble",
+        "~/yahboomcar_ros2_ws/software/library_ws",
+        "~/yahboomcar_ros2_ws/yahboomcar_ws",
+        "NUWA HP60C RGB-D",
+        "T-MINI Plus 2D LiDAR",
+        "Ackman_driver_A1"
+      ],
+      "title": "A1 선속도 캘리브레이션",
+      "symptoms": [
+        "calibrate_linear_A1 노드와 bringup 실행 이력",
+        "test_distance=1.0, speed=0.1, tolerance=0.01, start_test 등을 이용한 절차 확인",
+        "보정 전후 실측 결과 없음"
+      ],
+      "keywords": [
+        "linear calibration",
+        "calibrate_linear_A1",
+        "거리보정",
+        "A1-009",
+        "A1 선속도 캘리브레이션"
+      ],
+      "causes": [
+        "경험 기록 주의: 1m 시험 방법이 설명된 것이며 최종 보정 성공을 의미하지 않는다."
+      ],
+      "diagnostics": [
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 pkg executables yahboomcar_bringup"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 launch yahboomcar_bringup yahboomcar_bringup_A1_launch.py"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 run yahboomcar_bringup calibrate_linear_A1"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 topic echo /odom --once"
+        }
+      ],
+      "solutions": [
+        "odom/TF 안정화 후 노드 파라미터 이름 및 설정 방법 확인",
+        "안전한 직선 주행 공간에서 목표 거리와 실제 이동 거리 비교",
+        "모터 비정상 동작 시 보정 즉시 중단"
+      ],
+      "verification": [
+        "실측 이동거리와 오도메트리 거리 비교; 반복 후 scale correction 확인"
+      ],
+      "sources": [
+        {
+          "label": "2026-07~11 사용자·ChatGPT 과거 대화 기록 (해당 실행 로그 재검증 필요)",
+          "url": null
+        }
+      ],
+      "status": "partially-verified",
+      "statusLabel": "부분 확인 · 전체 해결 미확정"
+    },
+    {
+      "id": "a1-010",
+      "model": "A1",
+      "environment": [
+        "Yahboom ROSMASTER A1",
+        "Ubuntu 22.04 기반 기록",
+        "ROS 2 Humble",
+        "~/yahboomcar_ros2_ws/software/library_ws",
+        "~/yahboomcar_ros2_ws/yahboomcar_ws",
+        "NUWA HP60C RGB-D",
+        "T-MINI Plus 2D LiDAR",
+        "Ackman_driver_A1"
+      ],
+      "title": "A1 회전 보정 transform not ready",
+      "symptoms": [
+        "ros2 run yahboomcar_bringup calibrate_angular_A1 실행 뒤 transform not ready",
+        "odom↔base_footprint/base_link TF 가용성 문제 가능성",
+        "원호 주행인 Ackermann 차량에서 제자리 회전 가정 주의"
+      ],
+      "keywords": [
+        "transform not ready",
+        "calibrate_angular_A1",
+        "tf",
+        "A1-010",
+        "A1 회전 보정 transform not ready"
+      ],
+      "causes": [
+        "최종 원인 미확정: 실제 해결 완료 기록은 없음."
+      ],
+      "diagnostics": [
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 node list"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 topic echo /odom --once"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 topic echo /tf --once"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 run tf2_ros tf2_echo odom base_footprint"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 pkg executables yahboomcar_bringup"
+        }
+      ],
+      "solutions": [
+        "bringup과 odom/TF를 먼저 구동 및 확인",
+        "frame_id 실제 이름을 확인 후 캘리브레이션 실행",
+        "TF가 존재하지 않으면 스케일값을 임의 조정하지 말 것"
+      ],
+      "verification": [
+        "tf2_echo 변환이 지속 출력되고 보정 노드에서 transform not ready가 사라지는지 확인"
+      ],
+      "sources": [
+        {
+          "label": "2026-07~11 사용자·ChatGPT 과거 대화 기록 (해당 실행 로그 재검증 필요)",
+          "url": null
+        }
+      ],
+      "status": "unverified",
+      "statusLabel": "미해결 · 진단과 다음 단계만 확인"
+    },
+    {
+      "id": "a1-011",
+      "model": "A1",
+      "environment": [
+        "Yahboom ROSMASTER A1",
+        "Ubuntu 22.04 기반 기록",
+        "ROS 2 Humble",
+        "~/yahboomcar_ros2_ws/software/library_ws",
+        "~/yahboomcar_ros2_ws/yahboomcar_ws",
+        "NUWA HP60C RGB-D",
+        "T-MINI Plus 2D LiDAR",
+        "Ackman_driver_A1"
+      ],
+      "title": "A1 회전 보정 종료 시 NameError publish",
+      "symptoms": [
+        "calibrate_angular_A1 종료 시 NameError: name 'publish' is not defined",
+        "오류 위치가 calibrate_angular_A1.py의 cmd_vel,publish(Twist()) 관련 구문으로 기록"
+      ],
+      "keywords": [
+        "NameError",
+        "publish",
+        "calibrate_angular_A1",
+        "A1-011",
+        "A1 회전 보정 종료 시 NameError publish"
+      ],
+      "causes": [
+        "최종 원인 미확정: 오타/메서드 호출 문제는 원인 후보이며 패치 완료 및 실차 재검증 기록 없음."
+      ],
+      "diagnostics": [
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 pkg executables yahboomcar_bringup"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 pkg prefix yahboomcar_bringup"
+        }
+      ],
+      "solutions": [
+        "원본 파일과 소스 저장소 확인",
+        "publish() 잘못 호출된 구문 가능성 조사",
+        "원본 패키지를 직접 덮어쓰지 않고 복제본에서 Python 문법/속성/메서드 수정 후 테스트"
+      ],
+      "verification": [
+        "정상 종료 시 NameError가 재발하지 않는지 확인"
+      ],
+      "sources": [
+        {
+          "label": "2026-07~11 사용자·ChatGPT 과거 대화 기록 (해당 실행 로그 재검증 필요)",
+          "url": null
+        }
+      ],
+      "status": "unverified",
+      "statusLabel": "미해결 · 진단과 다음 단계만 확인"
+    },
+    {
+      "id": "a1-012",
+      "model": "A1",
+      "environment": [
+        "Yahboom ROSMASTER A1",
+        "Ubuntu 22.04 기반 기록",
+        "ROS 2 Humble",
+        "~/yahboomcar_ros2_ws/software/library_ws",
+        "~/yahboomcar_ros2_ws/yahboomcar_ws",
+        "NUWA HP60C RGB-D",
+        "T-MINI Plus 2D LiDAR",
+        "Ackman_driver_A1"
+      ],
+      "title": "A1 시리얼·MCU·IMU 동작 확인",
+      "symptoms": [
+        "/dev/myserial -> /dev/ttyUSB0였던 A1 테스트 시점",
+        "/edition=3.6, /voltage≈10.2V, /imu/data_raw 데이터 발행",
+        "Ackman_driver_A1의 Serial Opened 로그"
+      ],
+      "keywords": [
+        "/dev/myserial",
+        "imu",
+        "voltage",
+        "edition",
+        "A1-012",
+        "A1 시리얼·MCU·IMU 동작 확인"
+      ],
+      "causes": [
+        "경험 기록 주의: 10.2V는 당시 측정값이며 모든 장비의 안전 전압 기준으로 일반화 불가."
+      ],
+      "diagnostics": [
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "readlink -f /dev/myserial"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ls -l /dev/serial/by-id/"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 topic echo /edition --once"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 topic echo /voltage --once"
+        },
+        {
+          "os": "A1 Ubuntu 22.04 / ROS 2 Humble",
+          "cmd": "ros2 topic echo /imu/data_raw --once"
+        }
+      ],
+      "solutions": [
+        "모터가 안 돌아도 MCU 전체 고장으로 단정하지 말고 포트·전원·모터 출력을 분리 진단"
+      ],
+      "verification": [
+        "실제 센서 메시지 값 및 출력 변동 확인"
+      ],
+      "sources": [
+        {
+          "label": "2026-07~11 사용자·ChatGPT 과거 대화 기록 (해당 실행 로그 재검증 필요)",
+          "url": null
+        }
+      ],
+      "status": "verified",
+      "statusLabel": "경험 기록 확인 · 문제 전체 해결을 뜻하지 않음"
+    },
+    {
+      "id": "r2-exp-011",
+      "model": "R2",
+      "environment": [
+        "Yahboom ROSMASTER R2",
+        "Jetson Orin Nano Super",
+        "Ubuntu 24.04",
+        "ROS 2 Jazzy",
+        "~/sme_ws2",
+        "USB Camera",
+        "SLAMTEC SLLIDAR C1",
+        "Rosmaster IMU"
+      ],
+      "title": "Active Vision sweep와 TF",
+      "symptoms": [
+        "r2_active_vision의 aruCo tracker, camera_sweep_node",
+        "r2_description의 camera_tf_node 동적 TF",
+        "/active_vision/sweep std_srvs/srv/Trigger"
+      ],
+      "keywords": [
+        "sweep",
+        "tf",
+        "camera_tf",
+        "R2-011",
+        "Active Vision sweep와 TF"
+      ],
+      "causes": [
+        "경험 기록 주의: 최신 README의 sweep 순서 Tilt 120→Pan 70→90→110→90→Tilt 90."
+      ],
+      "diagnostics": [
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 run r2_description camera_tf_node"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 run r2_active_vision camera_sweep_node"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 service list -t"
+        }
+      ],
+      "solutions": [
+        "sweep 실행 전 tracker는 종료해 서보 명령 경쟁 방지",
+        "camera_pan_link 및 camera tilt frame chain 유효성 확인"
+      ],
+      "verification": [
+        "TF 및 sweep의 안전 동작 검증"
+      ],
+      "sources": [
+        {
+          "label": "github.com/elyj27801-hub/r2-ros2-autonomous-system/blob/main/README.md",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system/blob/main/README.md"
+        }
+      ],
+      "status": "verified",
+      "statusLabel": "경험 기록 확인 · 문제 전체 해결을 뜻하지 않음"
+    },
+    {
+      "id": "r2-exp-013",
+      "model": "R2",
+      "environment": [
+        "Yahboom ROSMASTER R2",
+        "Jetson Orin Nano Super",
+        "Ubuntu 24.04",
+        "ROS 2 Jazzy",
+        "~/sme_ws2",
+        "USB Camera",
+        "SLAMTEC SLLIDAR C1",
+        "Rosmaster IMU"
+      ],
+      "title": "Nav2 local_costmap width/height 실수 타입 문제",
+      "symptoms": [
+        "Nav2 Jazzy에서 local costmap width:3.0 height:3.0 사용 시 controller_server 시작 오류 기록"
+      ],
+      "keywords": [
+        "width",
+        "height",
+        "local_costmap",
+        "controller_server",
+        "R2-013",
+        "Nav2 local_costmap width/height 실수 타입 문제"
+      ],
+      "causes": [
+        "경험 기록 주의: 과거 프로젝트에서 확인된 해결 사례. 수치 자체는 구동 환경에 맞게 설정."
+      ],
+      "diagnostics": [
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 node list"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 lifecycle nodes"
+        }
+      ],
+      "solutions": [
+        "해당 버전의 파라미터가 정수를 요구하는 경우 width:3, height:3으로 수정",
+        "사용 중인 yaml과 ROS 로그를 대조하고 다른 실수 파라미터와 혼동하지 않는다"
+      ],
+      "verification": [
+        "controller_server 정상 시작 및 lifecycle 활성화 확인"
+      ],
+      "sources": [
+        {
+          "label": "2026-07~11 사용자·ChatGPT 과거 대화 기록 (해당 실행 로그 재검증 필요)",
+          "url": null
+        }
+      ],
+      "status": "verified",
+      "statusLabel": "경험 기록 확인 · 문제 전체 해결을 뜻하지 않음"
+    },
+    {
+      "id": "r2-exp-014",
+      "model": "R2",
+      "environment": [
+        "Yahboom ROSMASTER R2",
+        "Jetson Orin Nano Super",
+        "Ubuntu 24.04",
+        "ROS 2 Jazzy",
+        "~/sme_ws2",
+        "USB Camera",
+        "SLAMTEC SLLIDAR C1",
+        "Rosmaster IMU"
+      ],
+      "title": "Ackermann Nav2 경로 계획 및 제자리 회전 문제",
+      "symptoms": [
+        "R2는 Ackermann 조향 구조라 제자리 회전 불가",
+        "2D map/odom/TF 바탕에서 SLAM Toolbox, AMCL, Nav2 구동 시도"
+      ],
+      "keywords": [
+        "Ackermann",
+        "Nav2",
+        "Hybrid-A*",
+        "Reeds Shepp",
+        "R2-014",
+        "Ackermann Nav2 경로 계획 및 제자리 회전 문제"
+      ],
+      "causes": [
+        "경험 기록 주의: 설정 제안/실험 기록이며 완전한 자율 Nav2 주행 성공을 의미하지 않음."
+      ],
+      "diagnostics": [
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 topic hz /odom"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 run tf2_ros tf2_echo odom base_link"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 run tf2_ros tf2_echo base_link laser"
+        }
+      ],
+      "solutions": [
+        "ackermann 물리 제약에 맞는 planner/controller 설정 확인",
+        "Smac Hybrid-A* + Regulated Pure Pursuit 및 Reeds-Shepp 방향 검토",
+        "제자리 회전/허용 불가능 회전명령 유무 진단"
+      ],
+      "verification": [
+        "제약을 만족하는 경로를 생성·추종하는지 실차 확인"
+      ],
+      "sources": [
+        {
+          "label": "2026-07~11 사용자·ChatGPT 과거 대화 기록 (해당 실행 로그 재검증 필요)",
+          "url": null
+        }
+      ],
+      "status": "partially-verified",
+      "statusLabel": "부분 확인 · 전체 해결 미확정"
+    },
+    {
+      "id": "r2-exp-015",
+      "model": "R2",
+      "environment": [
+        "Yahboom ROSMASTER R2",
+        "Jetson Orin Nano Super",
+        "Ubuntu 24.04",
+        "ROS 2 Jazzy",
+        "~/sme_ws2",
+        "USB Camera",
+        "SLAMTEC SLLIDAR C1",
+        "Rosmaster IMU"
+      ],
+      "title": "Rosmaster 보드 상태/엔코더 점검",
+      "symptoms": [
+        "Rosmaster Serial Opened!, car_type=5, battery≈10.8V",
+        "Encoder=(0,0,-1,0), Motion=(0,0,0), Gyro=(0.005,0.003,0.004) 로그"
+      ],
+      "keywords": [
+        "Encoder",
+        "IMU",
+        "battery",
+        "Rosmaster",
+        "R2-015",
+        "Rosmaster 보드 상태/엔코더 점검"
+      ],
+      "causes": [
+        "경험 기록 주의: 엔코더 채널과 누적성 확정 전이므로 완성된 오도메트리로 단정 금지."
+      ],
+      "diagnostics": [
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "readlink -f /dev/myserial"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 topic echo /imu/data_raw --once"
+        }
+      ],
+      "solutions": [
+        "보드 통신 확인과 엔코더 채널/부호/단위 보정 문제를 분리",
+        "주행거리 추정 시 엔코더 채널 매핑을 실차 바퀴별로 검증"
+      ],
+      "verification": [
+        "각 바퀴 회전에 따른 해당 엔코더 값 변경 확인"
+      ],
+      "sources": [
+        {
+          "label": "2026-07~11 사용자·ChatGPT 과거 대화 기록 (해당 실행 로그 재검증 필요)",
+          "url": null
+        }
+      ],
+      "status": "verified",
+      "statusLabel": "경험 기록 확인 · 문제 전체 해결을 뜻하지 않음"
+    },
+    {
+      "id": "r2-exp-016",
+      "model": "R2",
+      "environment": [
+        "Yahboom ROSMASTER R2",
+        "Jetson Orin Nano Super",
+        "Ubuntu 24.04",
+        "ROS 2 Jazzy",
+        "~/sme_ws2",
+        "USB Camera",
+        "SLAMTEC SLLIDAR C1",
+        "Rosmaster IMU"
+      ],
+      "title": "Deep Learning Lane 분류 실험",
+      "symptoms": [
+        "PilotNet-style CNN, 입력 200×66×3, LEFT/STRAIGHT/RIGHT 분류",
+        "데이터 1421장 LEFT 478 STRAIGHT 654 RIGHT 289",
+        "validation accuracy 약 86.7% 기록"
+      ],
+      "keywords": [
+        "PilotNet",
+        "keras",
+        "lane dataset",
+        "86.7",
+        "R2-016",
+        "Deep Learning Lane 분류 실험"
+      ],
+      "causes": [
+        "경험 기록 주의: 파일 /home/jetson/r2_lane_classifier_v1_test.keras (약 3MB), 코드 lane_dataset_node.py, lane_classifier_test_node.py, lane_autodrive_test_node.py."
+      ],
+      "diagnostics": [
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ls -lh ~/r2_lane_classifier_v1_test.keras"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ros2 pkg executables sme_node"
+        }
+      ],
+      "solutions": [
+        "데이터 클래스 불균형 및 현장 일반화 오차 확인",
+        "dataset/test/autodrive 노드 분리해서 검증",
+        "모델 검증 정확도를 실차 주행 성공률로 혼동하지 않는다"
+      ],
+      "verification": [
+        "새 환경 테스트셋 성능과 차량 주행 성능 따로 측정"
+      ],
+      "sources": [
+        {
+          "label": "2026-07~11 사용자·ChatGPT 과거 대화 기록 (해당 실행 로그 재검증 필요)",
+          "url": null
+        }
+      ],
+      "status": "partially-verified",
+      "statusLabel": "부분 확인 · 전체 해결 미확정"
+    },
+    {
+      "id": "r2-exp-018",
+      "model": "R2",
+      "environment": [
+        "Yahboom ROSMASTER R2",
+        "Jetson Orin Nano Super",
+        "Ubuntu 24.04",
+        "ROS 2 Jazzy",
+        "~/sme_ws2",
+        "USB Camera",
+        "SLAMTEC SLLIDAR C1",
+        "Rosmaster IMU"
+      ],
+      "title": "GitHub 업로드 및 코드 보호",
+      "symptoms": [
+        "https://github.com/elyj27801-hub/r2-ros2-autonomous-system.git 사용",
+        "main 브랜치와 origin/main 동기화 확인·README와 코드 업로드",
+        "다른 repo에서 git status clean 확인 이력"
+      ],
+      "keywords": [
+        "GitHub",
+        "git",
+        "commit",
+        "R2-018",
+        "GitHub 업로드 및 코드 보호"
+      ],
+      "causes": [
+        "경험 기록 주의: GitHub 가시성은 현재 확인된 저장소에 한정. 다른 저장소는 연결 API에서 404일 수 있음."
+      ],
+      "diagnostics": [
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "git status -sb"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "git remote -v"
+        },
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "git log --oneline -5"
+        }
+      ],
+      "solutions": [
+        "미커밋 변경/미추적 파일을 먼저 확인",
+        "코덱스 챗봇 저장소는 Jetson 자율주행 소스와 별도로 관리"
+      ],
+      "verification": [
+        "git status -sb가 예상 브랜치를 가리키는지 확인"
+      ],
+      "sources": [
+        {
+          "label": "github.com/elyj27801-hub/r2-ros2-autonomous-system",
+          "url": "https://github.com/elyj27801-hub/r2-ros2-autonomous-system"
+        }
+      ],
+      "status": "verified",
+      "statusLabel": "경험 기록 확인 · 문제 전체 해결을 뜻하지 않음"
+    },
+    {
+      "id": "r2-exp-019",
+      "model": "R2",
+      "environment": [
+        "Yahboom ROSMASTER R2",
+        "Jetson Orin Nano Super",
+        "Ubuntu 24.04",
+        "ROS 2 Jazzy",
+        "~/sme_ws2",
+        "USB Camera",
+        "SLAMTEC SLLIDAR C1",
+        "Rosmaster IMU"
+      ],
+      "title": "PWM 서보 직접 구동 시 클록·핀 주의",
+      "symptoms": [
+        "Jetson Orin Nano Super 핀15 PWM1, 핀32/33 GPIO 관찰",
+        "50 Hz, center pulse 1.5ms, 1.2~1.8ms 테스트",
+        "PWM1 부모 클록 408MHz→overlay clk_m 19.2MHz 실험"
+      ],
+      "keywords": [
+        "PWM",
+        "servo",
+        "pin15",
+        "50Hz",
+        "R2-019",
+        "PWM 서보 직접 구동 시 클록·핀 주의"
+      ],
+      "causes": [
+        "경험 기록 주의: 기존 관찰 기록, 모든 Jetson/캐리어 보드 공통 핀배치 아님."
+      ],
+      "diagnostics": [
+        {
+          "os": "R2 Ubuntu 24.04 / ROS 2 Jazzy",
+          "cmd": "ls /sys/class/pwm/"
+        }
+      ],
+      "solutions": [
+        "JetPack/디바이스 트리와 핀맵을 실제 보드에 맞게 검증",
+        "오실로스코프로 50Hz와 duty를 먼저 확인하고 부하 연결",
+        "PWM 설정·장치 권한을 무턱대고 변경하지 않는다"
+      ],
+      "verification": [
+        "오실로스코프로 안정적인 펄스 확인"
+      ],
+      "sources": [
+        {
+          "label": "2026-07~11 사용자·ChatGPT 과거 대화 기록 (해당 실행 로그 재검증 필요)",
+          "url": null
+        }
+      ],
+      "status": "partially-verified",
+      "statusLabel": "부분 확인 · 전체 해결 미확정"
+    }
+  ]
+}

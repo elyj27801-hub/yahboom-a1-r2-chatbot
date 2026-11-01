@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Yahboom ROSMASTER A1·R2 한국어 문제 해결 검색 챗봇" />
+    <title>Yahboom A1·R2 기술지원</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#question">질문 입력으로 건너뛰기</a>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">LOCAL-FIRST · API 0회</p>
+          <h1>Yahboom A1·R2 기술지원</h1>
+          <p class="subtitle">검증된 기록을 먼저 찾고, 모르면 모른다고 답하는 진단 도우미</p>
+        </div>
+        <div class="status-pill" title="질문과 지식 데이터는 브라우저 안에서만 처리됩니다.">
+          <span aria-hidden="true"></span> 브라우저 내 검색
+        </div>
+      </header>
+
+      <main>
+        <section class="model-panel" aria-labelledby="model-title">
+          <div>
+            <p class="section-label" id="model-title">로봇 선택</p>
+            <p class="model-help">환경을 섞지 않도록 먼저 모델을 고르세요.</p>
+          </div>
+          <div class="model-switch" role="radiogroup" aria-label="로봇 모델">
+            <button type="button" class="model-button" data-model="A1" role="radio" aria-checked="false">
+              <strong>A1</strong><small>Humble · HP60C</small>
+            </button>
+            <button type="button" class="model-button active" data-model="R2" role="radio" aria-checked="true">
+              <strong>R2</strong><small>Jazzy · Orin Nano</small>
+            </button>
+          </div>
+        </section>
+
+        <section class="chat-card" aria-label="기술지원 채팅">
+          <div id="messages" class="messages" role="log" aria-live="polite" aria-relevant="additions"></div>
+
+          <div class="suggestions-wrap">
+            <p class="section-label">추천 질문</p>
+            <div id="suggestions" class="suggestions"></div>
+          </div>
+
+          <form id="chat-form" class="composer">
+            <label for="question" class="sr-only">문제 또는 오류를 입력하세요</label>
+            <textarea id="question" rows="2" maxlength="500" placeholder="예: SL_RESULT_OPERATION_TIMEOUT 오류가 발생해" required></textarea>
+            <button id="submit-button" type="submit">질문 보내기 <span aria-hidden="true">↗</span></button>
+          </form>
+          <p id="app-status" class="app-status" role="status">지식베이스를 불러오는 중입니다.</p>
+        </section>
+      </main>
+
+      <footer>
+        <p>실제 장비에 명령을 내리지 않습니다. 모터 테스트 전에는 바퀴를 지면에서 띄우고 비상 정지를 준비하세요.</p>
+      </footer>
+    </div>
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>
