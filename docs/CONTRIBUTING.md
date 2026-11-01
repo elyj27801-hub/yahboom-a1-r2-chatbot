@@ -99,4 +99,3 @@ Get-Content data\knowledge-base.json -Raw | ConvertFrom-Json | Out-Null
 - [ ] JSON과 Markdown 링크 검사를 통과했다.
 - [ ] 비밀정보 검사를 통과했다.
 - [ ] 공개 사이트에서 검색과 복사를 확인했다.
-

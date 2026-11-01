@@ -91,4 +91,3 @@ https://elyj27801-hub.github.io/yahboom-a1-r2-chatbot/
 ## 확장 경계
 
 `StaticKnowledgeProvider.answer(question, context)` 계약을 유지하면 다른 공급자를 구현할 수 있지만, 현재 AI 공급자는 없습니다. 향후 AI를 추가한다면 브라우저에 비밀키를 넣어서는 안 되며 서버 프록시, 인증, 요청 제한, 캐시와 비용 상한이 필요합니다.
-

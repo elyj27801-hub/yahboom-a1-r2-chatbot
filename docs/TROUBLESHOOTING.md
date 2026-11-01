@@ -135,4 +135,3 @@ OS / ROS 2:
 ```
 
 지식베이스 반영 절차는 [CONTRIBUTING.md](CONTRIBUTING.md)를 참고하세요.
-
